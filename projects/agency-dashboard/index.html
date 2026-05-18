@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YourNetworkPlug — AI Agency Dashboard</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0a0a0f; color: #e0e0e0; min-height: 100vh; }
+  .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 20px 40px; border-bottom: 1px solid #2a2a4a; display: flex; justify-content: space-between; align-items: center; }
+  .header h1 { color: #00d4ff; font-size: 1.5rem; }
+  .header .status { display: flex; gap: 20px; align-items: center; }
+  .badge { background: #00d4ff22; color: #00d4ff; padding: 6px 14px; border-radius: 20px; font-size: 0.8rem; }
+  .badge.online { background: #00ff8822; color: #00ff88; }
+  .badge.agents { background: #ff00ff22; color: #ff00ff; }
+  
+  .main-grid { display: grid; grid-template-columns: 1fr 380px; gap: 20px; padding: 20px; height: calc(100vh - 80px); }
+  
+  .kanban-section { overflow-y: auto; }
+  .kanban-section h2 { color: #888; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 15px; padding-left: 5px; }
+  
+  .kanban-board { display: flex; gap: 15px; overflow-x: auto; padding-bottom: 20px; }
+  
+  .column { background: #12121a; border-radius: 12px; min-width: 260px; width: 260px; display: flex; flex-direction: column; }
+  .col-header { padding: 15px; border-bottom: 1px solid #1f1f2e; display: flex; justify-content: space-between; align-items: center; }
+  .col-name { font-weight: 600; font-size: 0.9rem; }
+  .col-count { background: #2a2a4a; color: #888; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; }
+  .col-triage .col-name { color: #ff6b6b; }
+  .col-research .col-name { color: #ffd93d; }
+  .col-build .col-name { color: #6bcb77; }
+  .col-review .col-name { color: #4d96ff; }
+  .col-deploy .col-name { color: #9b59b6; }
+  .col-done .col-name { color: #00d4ff; }
+  
+  .cards { padding: 10px; display: flex; flex-direction: column; gap: 8px; min-height: 200px; }
+  
+  .card { background: #1a1a2e; border-radius: 8px; padding: 12px; border: 1px solid #2a2a4a; cursor: pointer; transition: all 0.2s; }
+  .card:hover { border-color: #00d4ff44; transform: translateY(-2px); }
+  .card-title { font-size: 0.85rem; line-height: 1.4; margin-bottom: 8px; }
+  .card-meta { display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; color: #666; }
+  .card-agent { display: flex; align-items: center; gap: 5px; }
+  .agent-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .card-level { font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; background: #00d4ff22; color: #00d4ff; }
+  
+  .card.tools { border-color: #00ff8822; }
+  .card.tools .card-level { background: #00ff8822; color: #00ff88; }
+  
+  .card.delegated { border-color: #ff00ff44; }
+  .card.delegated .card-level { background: #ff00ff22; color: #ff00ff; }
+  
+  .right-panel { display: flex; flex-direction: column; gap: 15px; overflow-y: auto; }
+  
+  .panel { background: #12121a; border-radius: 12px; padding: 15px; }
+  .panel h3 { font-size: 0.8rem; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #1f1f2e; }
+  
+  .fleet-list { display: flex; flex-direction: column; gap: 8px; }
+  .fleet-item { display: flex; align-items: center; gap: 10px; padding: 8px; background: #1a1a2e; border-radius: 6px; }
+  .fleet-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1rem; }
+  .fleet-info { flex: 1; }
+  .fleet-name { font-size: 0.8rem; font-weight: 600; }
+  .fleet-role { font-size: 0.65rem; color: #666; }
+  .fleet-status { font-size: 0.65rem; padding: 2px 8px; border-radius: 10px; }
+  .status.ready { background: #00ff8822; color: #00ff88; }
+  .status.busy { background: #ffd93d22; color: #ffd93d; }
+  .status.idle { background: #44422; color: #888; }
+  
+  .metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .metric { background: #1a1a2e; border-radius: 8px; padding: 12px; text-align: center; }
+  .metric-value { font-size: 1.8rem; font-weight: 700; color: #00d4ff; }
+  .metric-label { font-size: 0.65rem; color: #666; text-transform: uppercase; margin-top: 4px; }
+  
+  .log-stream { font-family: 'Fira Code', monospace; font-size: 0.7rem; background: #0a0a0f; border-radius: 6px; padding: 10px; max-height: 200px; overflow-y: auto; }
+  .log-line { padding: 2px 0; border-bottom: 1px solid #1a1a2e; }
+  .log-time { color: #555; margin-right: 8px; }
+  .log-agent { color: #00d4ff; margin-right: 8px; }
+  .log-action { color: #00ff88; }
+  .log-error { color: #ff6b6b; }
+  
+  .obsidian-section { display: flex; flex-direction: column; gap: 8px; }
+  .obsidian-item { display: flex; align-items: center; gap: 8px; padding: 8px; background: #1a1a2e; border-radius: 6px; font-size: 0.8rem; color: #aaa; }
+  .obsidian-item .folder { color: #ffd93d; }
+  
+  .agent-diagram { background: #0a0a0f; border-radius: 8px; padding: 15px; margin-top: 10px; }
+  .agent-diagram h4 { color: #00d4ff; font-size: 0.75rem; margin-bottom: 10px; text-transform: uppercase; }
+  .diagram-row { display: flex; align-items: center; justify-content: center; gap: 20px; margin: 10px 0; }
+  .agent-node { background: #1a1a2e; border: 1px solid #2a2a4a; border-radius: 8px; padding: 10px 15px; text-align: center; min-width: 100px; }
+  .agent-node.primary { border-color: #00d4ff; box-shadow: 0 0 15px #00d4ff22; }
+  .agent-node.secondary { border-color: #9b59b6; }
+  .agent-node.child { border-color: #00ff88; }
+  .node-name { font-size: 0.75rem; font-weight: 600; }
+  .node-role { font-size: 0.6rem; color: #666; }
+  .arrow { color: #444; font-size: 1.2rem; }
+  .arrow.bidirectional { color: #00d4ff; }
+  
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: #12121a; }
+  ::-webkit-scrollbar-thumb { background: #2a2a4a; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🤖 YourNetworkPlug AI Agency</h1>
+  <div class="status">
+    <span class="badge online">● System Online</span>
+    <span class="badge agents" id="agent-count">8 Agents Active</span>
+    <span class="badge">24 Tasks Running</span>
+  </div>
+</div>
+
+<div class="main-grid">
+  <!-- LEFT: Kanban Board -->
+  <div class="kanban-section">
+    <h2>// Kanban — Fleet Command</h2>
+    <div class="kanban-board">
+      
+      <!-- TRIAGE -->
+      <div class="column col-triage">
+        <div class="col-header">
+          <span class="col-name">◉ TRIAGE</span>
+          <span class="col-count">4</span>
+        </div>
+        <div class="cards">
+          <div class="card">
+            <div class="card-title">Route ISP client inquiry to appropriate agent</div>
+            <div class="card-meta">
+              <div class="card-agent"><span class="agent-dot" style="background:#00d4ff"></span>hermes</div>
+              <span class="card-level">L3</span>
+            </div>
+          </div>
+          <div class="card tools">
+            <div class="card-title">Authenticate new audit firm onboarding</div>
+            <div class="card-meta">
+              <div class="card-agent"><span class="agent-dot" style="background:#9b59b6"></span>auth-agent</div>
+              <span class="card-level">L3</span>
+            </div>
+          </div>
+          <div class="card delegated">
+            <div class="card-title">Schedule school client demo</div>
+            <div class="card-meta">
+              <div class="card-agent"><span class="agent-dot" style="background:#ff00ff"></span>→ scheduler</div>
+              <span class="card-level">L4</span>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Review Westgate payment failure alert</div>
+            <div class="card-meta">
+              <div class="card-agent"><span class="agent-dot" style="background:#ffd93d"></span>mpesa-agent</div>
+              <span class="card-level">L3</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- RESEARCH -->
+      <div class="column col-research">
+        <div class="col-header">
+          <span class="col-name">◎ RESEARCH</span>
+          <span class="col-count">3</span>
+        </div>
+        <div class="cards">
+          <div class="card tools">
+            <div class="card-title">Gather competitor analysis for AI dashboard feature</div>
+            <div class="card-meta">
+              <div class="card-agent"><span class="agent-dot" style="background:#00d4ff"></span>hermes</div>
+              <span class="card-level">L3</span>
+            </div>
+          </div>
+          <div class="card delegated">
+            <div class="card-title">Scrape competitor pricing from 5 SaaS tools</div>
+            <div class="card-meta">
+              <div class="card-agent"><span class="agent-dot" style="background:#00ff88"></span>→ research-bot</div>
+              <span class="card-level">L4</span>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Validate school term dates with admin</div>
+            <div class="card-meta">
+              <div class="card-agent"><span class="agent-dot" style="background:#6bcb77"></span>school-agent</div>
+              <span class="card-level">L3</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- BUILD -->
+      <div class="column col-build">
+        <div class="col-header">
+          <span class="col-name">◈ BUILD</span>
+          <span class="col-count">5</span>
+        </div>
+        <div class="cards">
+          <div class="card tools">
+            <div class="card-title">Build VPN config generator for new ISP client</div>
+            <div class="card-meta">
+              <div class="card-agent"><span class="agent-dot" style="background:#00d4ff"></span>hermes</div>
+              <span class="card-level">L3</span>
+            </div>
+          </div>
+          <div class="card delegated">
+            <div class="card-title">Generate audit report for Q1 2026</div>
+            <div class="card-meta">
+              <div class="card-agent"><span class="agent-dot" style="background:#ff6b6b"></span>→ audit-writer</div>
+              <span class="card-level">L4</span>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Deploy GenieACS health check cron job</div>
+            <div class="card-meta">
+              <div class="card-agent"><span class="agent-dot" style="background:#00ff88"></span>isp-ops</div>
+              <span class="card-level">L3</span>
+            </div>
+          </div>
+          <div class="card tools">
+            <div class="card-title">Integrate M-Pesa STK push for Westgate</div>
+            <div class="card-meta">
+              <div class="card-agent"><span class="agent-dot" style="background:#ffd93d"></span>mpesa-agent</div>
+              <span class="card-level">L3</span>
+            </div>
+          </div>
+          <div class="card delegated">
+            <div class="card-title">Build landing page variant for audit vertical</div>
+            <div class="card-meta">
+              <div class="card-agent"><span class="agent-dot" style="background:#4d96ff"></span>→ frontend-bot</div>
+              <span class="card-level">L4</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- REVIEW -->
+      <div class="column col-review">
+        <div class="col-header">
+          <span class="col-name">◎ REVIEW</span>
+          <span class="col-count">2</span>
+        </div>
+        <div class="cards">
+          <div class="card">
+            <div class="card-title">Review AI dashboard mockups from frontend-bot</div>
+            <div class="card-meta">
+              <div class="card-agent"><span class="agent-dot" style="background:#00d4ff"></span>hermes</div>
+              <span class="card-level">L3</span>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Validate Supabase RLS policies for VIP tier</div>
+            <div class="card-meta">
+              <div class="card-agent"><span class="agent-dot" style="background:#9b59b6"></span>security-agent</div>
+              <span class="card-level">L3</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- DEPLOY -->
+      <div class="column col-deploy">
+        <div class="col-header">
+          <span class="col-name">◉ DEPLOY</span>
+          <span class="col-count">2</span>
+        </div>
+        <div class="cards">
+          <div class="card tools">
+            <div class="card-title">Ship kanban board to production</div>
+            <div class="card-meta">
+              <div class="card-agent"><span class="agent-dot" style="background:#00d4ff"></span>hermes</div>
+              <span class="card-level">L3</span>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Restart traefik after config update</div>
+            <div class="card-meta">
+              <div class="card-agent"><span class="agent-dot" style="background:#00ff88"></span>isp-ops</div>
+              <span class="card-level">L3</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- DONE -->
+      <div class="column col-done">
+        <div class="col-header">
+          <span class="col-name">✓ DONE</span>
+          <span class="col-count">8</span>
+        </div>
+        <div class="cards">
+          <div class="card">
+            <div class="card-title">OpenClaw gateway RAM audit complete</div>
+            <div class="card-meta">
+              <span style="color:#00ff88">completed</span>
+              <span class="card-level" style="background:#00ff8822; color:#00ff88">L3</span>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Obsidian vault synced to GitHub</div>
+            <div class="card-meta">
+              <span style="color:#00ff88">completed</span>
+              <span class="card-level" style="background:#00ff8822; color:#00ff88">L3</span>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Docker cleanup cron deployed</div>
+            <div class="card-meta">
+              <span style="color:#00ff88">completed</span>
+              <span class="card-level" style="background:#00ff8822; color:#00ff88">L3</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+  
+  <!-- RIGHT: Fleet Panel -->
+  <div class="right-panel">
+    
+    <!-- Agent Fleet -->
+    <div class="panel">
+      <h3>// Agent Fleet</h3>
+      <div class="fleet-list">
+        <div class="fleet-item">
+          <div class="fleet-icon" style="background:#00d4ff22; color:#00d4ff">🤖</div>
+          <div class="fleet-info">
+            <div class="fleet-name">Hermes (Fleet Manager)</div>
+            <div class="fleet-role">Orchestrator · Level 4</div>
+          </div>
+          <span class="fleet-status busy">busy</span>
+        </div>
+        <div class="fleet-item">
+          <div class="fleet-icon" style="background:#9b59b622; color:#9b59b6">🦊</div>
+          <div class="fleet-info">
+            <div class="fleet-name">OpenClaw</div>
+            <div class="fleet-role">Secondary AI · Level 3</div>
+          </div>
+          <span class="fleet-status ready">ready</span>
+        </div>
+        <div class="fleet-item">
+          <div class="fleet-icon" style="background:#00ff8822; color:#00ff88">🔧</div>
+          <div class="fleet-info">
+            <div class="fleet-name">ISP Ops</div>
+            <div class="fleet-role">Infrastructure · Level 3</div>
+          </div>
+          <span class="fleet-status busy">busy</span>
+        </div>
+        <div class="fleet-item">
+          <div class="fleet-icon" style="background:#6bcb7722; color:#6bcb77">📚</div>
+          <div class="fleet-info">
+            <div class="fleet-name">School Agent</div>
+            <div class="fleet-role">Education vertical · Level 3</div>
+          </div>
+          <span class="fleet-status idle">idle</span>
+        </div>
+        <div class="fleet-item">
+          <div class="fleet-icon" style="background:#ffd93d22; color:#ffd93d">💳</div>
+          <div class="fleet-info">
+            <div class="fleet-name">M-Pesa Agent</div>
+            <div class="fleet-role">Payments · Level 3</div>
+          </div>
+          <span class="fleet-status ready">ready</span>
+        </div>
+        <div class="fleet-item">
+          <div class="fleet-icon" style="background:#ff6b6b22; color:#ff6b6b">📊</div>
+          <div class="fleet-info">
+            <div class="fleet-name">Audit Writer</div>
+            <div class="fleet-role">Reports · Level 4</div>
+          </div>
+          <span class="fleet-status busy">delegated</span>
+        </div>
+        <div class="fleet-item">
+          <div class="fleet-icon" style="background:#4d96ff22; color:#4d96ff">🎨</div>
+          <div class="fleet-info">
+            <div class="fleet-name">Frontend Bot</div>
+            <div class="fleet-role">UI/Build · Level 4</div>
+          </div>
+          <span class="fleet-status busy">building</span>
+        </div>
+        <div class="fleet-item">
+          <div class="fleet-icon" style="background:#ff00ff22; color:#ff00ff">🔍</div>
+          <div class="fleet-info">
+            <div class="fleet-name">Research Bot</div>
+            <div class="fleet-role">Scraping · Level 4</div>
+          </div>
+          <span class="fleet-status busy">scraping</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Metrics -->
+    <div class="panel">
+      <h3>// Fleet Metrics</h3>
+      <div class="metric-grid">
+        <div class="metric">
+          <div class="metric-value">24</div>
+          <div class="metric-label">Active Tasks</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">87%</div>
+          <div class="metric-label">Success Rate</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">6</div>
+          <div class="metric-label">Self-Healed</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">3</div>
+          <div class="metric-label">Blocked</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Live Log -->
+    <div class="panel">
+      <h3>// Live Activity</h3>
+      <div class="log-stream">
+        <div class="log-line">
+          <span class="log-time">14:23:01</span>
+          <span class="log-agent">hermes</span>
+          <span class="log-action">card spawned: audit-writer [t_abc123]</span>
+        </div>
+        <div class="log-line">
+          <span class="log-time">14:23:03</span>
+          <span class="log-agent">audit-writer</span>
+          <span class="log-action">tool_called: vps_exec (git pull)</span>
+        </div>
+        <div class="log-line">
+          <span class="log-time">14:23:05</span>
+          <span class="log-agent">audit-writer</span>
+          <span class="log-action">completed: data extraction from 47 PDFs</span>
+        </div>
+        <div class="log-line">
+          <span class="log-time">14:23:07</span>
+          <span class="log-agent">frontend-bot</span>
+          <span class="log-action">card delegated: landing-page-build [t_def456]</span>
+        </div>
+        <div class="log-line">
+          <span class="log-time">14:23:08</span>
+          <span class="log-agent">hermes</span>
+          <span class="log-action">context compounded from 12 runs → HIGH</span>
+        </div>
+        <div class="log-line">
+          <span class="log-time">14:23:10</span>
+          <span class="log-agent">mpesa-agent</span>
+          <span class="log-action">self-healed: token refresh timeout</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Agent Diagram -->
+    <div class="panel">
+      <h3>// Architecture</h3>
+      <div class="agent-diagram">
+        <div class="diagram-row">
+          <div class="agent-node primary">
+            <div class="node-name">🤖 Hermes</div>
+            <div class="node-role">Fleet Manager</div>
+          </div>
+        </div>
+        <div class="diagram-row">
+          <span class="arrow">↓ spawns</span>
+        </div>
+        <div class="diagram-row">
+          <div class="agent-node secondary">🦊 OpenClaw</div>
+          <div class="agent-node child">🔧 ISP Ops</div>
+          <div class="agent-node child">💳 M-Pesa</div>
+        </div>
+        <div class="diagram-row">
+          <div class="agent-node child">📊 Audit Writer</div>
+          <div class="agent-node child">🎨 Frontend</div>
+          <div class="agent-node child">🔍 Research</div>
+        </div>
+        <div class="diagram-row">
+          <span class="arrow bidirectional">↔ MCP</span>
+        </div>
+        <div class="diagram-row">
+          <div class="agent-node" style="background:#1a1a2e; border-color:#2a2a4a;">
+            <div class="node-name">🗄️ Executor API</div>
+            <div class="node-role">vps_exec · vps_write · browser</div>
+          </div>
+        </div>
+        <div class="diagram-row">
+          <span class="arrow bidirectional">↔</span>
+        </div>
+        <div class="diagram-row">
+          <div class="agent-node" style="background:#1a1a2e; border-color:#2a2a4a;">
+            <div class="node-name">📦 Kanban DB</div>
+            <div class="node-role">/opt/data/kanban/</div>
+          </div>
+          <div class="agent-node" style="background:#1a1a2e; border-color:#2a2a4a;">
+            <div class="node-name">📝 Obsidian</div>
+            <div class="node-role">Second Brain</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Obsidian Sync -->
+    <div class="panel">
+      <h3>// Obsidian Vault</h3>
+      <div class="obsidian-section">
+        <div class="obsidian-item"><span class="folder">📁</span> daily/ — 47 notes</div>
+        <div class="obsidian-item"><span class="folder">📁</span> projects/ — 12 active</div>
+        <div class="obsidian-item"><span class="folder">📁</span> skills/ — 8 playbooks</div>
+        <div class="obsidian-item"><span class="folder">📁</span> agents/ — 6 configs</div>
+        <div class="obsidian-item"><span class="folder">📁</span> archive/ — 23 archived</div>
+      </div>
+    </div>
+    
+  </div>
+</div>
+
+<script>
+  // Simulated live updates
+  const actions = [
+    { agent: 'hermes', action: 'card completed: docker cleanup' },
+    { agent: 'isp-ops', action: 'tool_called: vps_exec (restart traefik)' },
+    { agent: 'audit-writer', action: 'spawned sub-card: data-validate' },
+    { agent: 'frontend-bot', action: 'pushed to origin/main' },
+    { agent: 'research-bot', action: 'scraped 12 competitor pages' },
+  ];
+  
+  function addLog() {
+    const log = document.querySelector('.log-stream');
+    const item = actions[Math.floor(Math.random() * actions.length)];
+    const time = new Date().toLocaleTimeString('en-US', {hour12: false});
+    const line = document.createElement('div');
+    line.className = 'log-line';
+    line.innerHTML = `<span class="log-time">${time}</span><span class="log-agent">${item.agent}</span><span class="log-action">${item.action}</span>`;
+    log.insertBefore(line, log.firstChild);
+    if (log.children.length > 8) log.removeChild(log.lastChild);
+  }
+  
+  setInterval(addLog, 4000);
+</script>
+
+</body>
+</html>
