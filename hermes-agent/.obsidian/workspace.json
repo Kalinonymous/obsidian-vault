@@ -4,17 +4,17 @@
     "type": "split",
     "children": [
       {
-        "id": "2285ed19304e5804",
+        "id": "abcab006e69c7655",
         "type": "tabs",
         "children": [
           {
-            "id": "6f4090e44534af5f",
+            "id": "7513d50e239c2e9a",
             "type": "leaf",
             "state": {
-              "type": "graph",
+              "type": "empty",
               "state": {},
-              "icon": "lucide-git-fork",
-              "title": "Graph view"
+              "icon": "lucide-file",
+              "title": "New tab"
             }
           }
         ]
@@ -178,8 +178,9 @@
       "audio-recorder:Start/stop recording": false
     }
   },
-  "active": "6f4090e44534af5f",
+  "active": "071dea1368c6ca0b",
   "lastOpenFiles": [
+    "create a link.md",
     "Untitled.base",
     "Welcome.md",
     "Untitled.canvas",
