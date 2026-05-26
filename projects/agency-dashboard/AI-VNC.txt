@@ -1,0 +1,185 @@
+Phase 1: Operating System & Host Prep
+Do not use Windows or a heavy desktop environment. You need a lightweight, headless, stable base server OS to save RAM and CPU for Chrome and your agents.
+Download the OS: Download Ubuntu Server 24.04 LTS.
+Flash the Drive: Use a tool like Rufus or BalenaEtcher to flash the OS image to a USB thumb drive.
+Perform a Clean Install:
+Wipe the laptop's entire hard drive completely.
+During installation, tick the box to Install OpenSSH Server so you can manage it remotely.
+Fix the Laptop Lid Sleep Bug: By default, if you close a laptop lid, Linux puts the machine to sleep. To make it behave like a server rack that stays on 24/7 with the lid closed, run this in your terminal:
+bash
+sudo nano /etc/systemd/logind.conf
+Use code with caution.
+Find the following lines, uncomment them (remove the #), and change them to ignore:
+text
+HandleLidSwitch=ignore
+HandleLidSwitchExternalPower=ignore
+HandleLidSwitchDocked=ignore
+Use code with caution.
+Save (Ctrl+O, Enter) and exit (Ctrl+X), then restart the service:
+bash
+sudo systemctl restart systemd-logind
+Use code with caution.
+Phase 2: Core Software & Networking Dependencies
+Update your repository links and install Docker, network tunnels, and system diagnostics tools.
+bash
+# 1. Update the underlying operating system layers
+sudo apt update && sudo apt upgrade -y
+
+# 2. Install fundamental network utility tools
+sudo apt install -y curl git ufw htop net-tools wireguard
+
+# 3. Secure and install the Docker Engine engine
+curl -fsSL https://docker.com -o get-docker.sh
+sudo sh get-docker.sh
+sudo usermod -aG docker $USER
+newgrp docker
+Use code with caution.
+Phase 3: Connect to Your ISP Public IP & VPN
+To let your Hostinger Master VPS route tasks smoothly to this laptop, link them through your existing VPN tunnel and assign it a pathway through your ISP Public IP gateway.
+ [ Hostinger Master VPS ] (Brain)
+            │
+    (WireGuard VPN Tunnel)
+            │
+            ▼  [ Ports 8001-8005 Protected by UFW ]
+ [ Your Clean AI Laptop Node ] 
+            ▲
+    (ISP Public IP via Router Port Forward)
+Expose Ports Locally: Turn on the built-in Ubuntu firewall (ufw) to drop all malicious web tracking traffic while leaving your internal orchestration lanes wide open:
+bash
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow 22/tcp comment 'SSH Management'
+sudo ufw allow from 10.8.0.0/24 comment 'Allow Hostinger Master VPN Traffic'
+sudo ufw enable
+Use code with caution.
+(Replace 10.8.0.0/24 with your actual internal VPN subnet range).
+Configure Your ISP Router: Log into your ISP boundary router gateway. Set up a static DHCP reservation for your laptop's local LAN IP. Then, forward a targeted external port range (e.g., ports 8001 through 8005) straight to your laptop's internal LAN IP address.
+Phase 4: Spin Up the Multi-Tenant Agent Worker Node Cluster
+Instead of running a single environment, create a directory layout to run two completely isolated client slots on this laptop right away. This leaves space to add more slots later.
+1. Setup the Project Directory Layout
+bash
+mkdir -p ~/ai-node/slot1 ~/ai-node/slot2
+cd ~/ai-node
+Use code with caution.
+2. Create the Node Automation Engine (app.py)
+Save this clean automation script to ~/ai-node/app.py. This application listens on unique system ports, controls independent virtual visual frames (:1, :2), and runs OpenClaw tasks.
+python
+import os
+import subprocess
+import time
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+import pyautogui
+
+app = FastAPI()
+
+# Read target screen assignment from environment configurations
+DISPLAY_ID = os.getenv("TARGET_DISPLAY", ":1")
+os.environ["DISPLAY"] = DISPLAY_ID
+
+class AgentPayload(BaseModel):
+    client_id: str
+    target_url: str
+    action_text: str
+
+@app.post("/execute-job")
+async def run_visual_macro(payload: AgentPayload):
+    print(f"[Node Node] Launching workframe for Client: {payload.client_id} on Display {DISPLAY_ID}")
+    try:
+        # Launch isolated browser window
+        chrome_args = [
+            "google-chrome-stable", payload.target_url,
+            "--no-sandbox", "--disable-dev-shm-usage", "--start-maximized"
+        ]
+        browser_process = subprocess.Popen(chrome_args)
+        time.sleep(6) # Give the local DOM time to load completely
+        
+        # Execute UI commands on the designated virtual coordinate matrix
+        pyautogui.click(640, 512) # Click center of 1280x1024 screen frame
+        pyautogui.typewrite(payload.action_text, interval=0.05)
+        
+        # Take a visual proof-of-work frame snapshot
+        out_img = f"/tmp/result_{payload.client_id}.png"
+        pyautogui.screenshot().save(out_img)
+        
+        browser_process.terminate()
+        return {"status": "success", "client": payload.client_id, "proof_snapshot_path": out_img}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+Use code with caution.
+3. Create the Production Environment Config (docker-compose.yml)
+Save this multi-container launch matrix file inside ~/ai-node/docker-compose.yml. This automatically boots two isolated server slots, limits their memory pools so they never crash your laptop, and configures the standard /dev/shm shared memory Chrome bug fix:
+yaml
+version: '3.8'
+
+services:
+  agent_slot_1:
+    image: coasty-ai/open-computer-use:latest # Or your custom image built from the previous step
+    container_name: client_node_1
+    restart: always
+    ports:
+      - "8001:8000"  # API Target Line for Client 1
+      - "5901:5900"  # Live VNC Debug View Line for Client 1
+    environment:
+      - TARGET_DISPLAY=:1
+    shm_size: '2gb'   # Crucial fix to prevent Google Chrome tab crashes
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 3G
+
+  agent_slot_2:
+    image: coasty-ai/open-computer-use:latest
+    container_name: client_node_2
+    restart: always
+    ports:
+      - "8002:8000"  # API Target Line for Client 2
+      - "5902:5900"  # Live VNC Debug View Line for Client 2
+    environment:
+      - TARGET_DISPLAY=:2
+    shm_size: '2gb'
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 3G
+Use code with caution.
+Launch your cluster instantly by running:
+bash
+docker compose up -d
+Use code with caution.
+Phase 5: Connect Your Hostinger Master Code to the Laptop Node
+To route tasks to your laptop, point your Hostinger master controller (which processes your incoming Telegram bot webhooks) directly to your laptop's endpoints:
+python
+import requests
+
+# Set your target paths based on which client sends the Telegram trigger request
+CLIENT_WORKER_ROUTING = {
+    "client_company_A": "http://<YOUR_ISP_PUBLIC_IP_OR_VPN_IP>:8001/execute-job",
+    "client_company_B": "http://<YOUR_ISP_PUBLIC_IP_OR_VPN_IP>:8002/execute-job"
+}
+
+def dispatch_telegram_task_to_laptop(client_key, target_site, user_instruction):
+    target_worker_url = CLIENT_WORKER_ROUTING.get(client_key)
+    
+    payload = {
+        "client_id": client_key,
+        "target_url": target_site,
+        "action_text": user_instruction
+    }
+    
+    print(f"[Master] Offloading script execution to local hardware cluster node...")
+    response = requests.post(target_worker_url, json=payload)
+    return response.json()
+Use code with caution.
+Proactive Next Steps
+With your laptop configured into a local AI server, you can begin expanding your cluster. If you're ready, let me know if you would like to look into:
+How to use Proxmox VE instead of Ubuntu Server on that laptop if you want to test enterprise-grade datacenter hypervisors early.
+Writing a PostgreSQL pipeline script that mounts different database environments to each Docker slot based on who messages your Telegram bot.
+Let me know which route you would like to map out next!
+
+
+
+
+
